@@ -1,0 +1,68 @@
+{
+  "name": "smithy-ast-js",
+  "author": "fmlabs",
+  "version": "1.0.0",
+  "description": "Smithy AST parser for JavaScript",
+  "type": "module",
+  "main": "dist/smithy-ast.umd.js",
+  "module": "dist/smithy-ast.esm.js",
+  "types": "dist/smithy-ast.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/smithy-ast.esm.js",
+      "require": "./dist/smithy-ast.umd.js",
+      "types": "./dist/smithy-ast.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:vite": "tsc && vite build",
+    "build:rollup": "tsc && rollup -c",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint src/",
+    "lint:fix": "eslint ./src/ --fix",
+    "dev": "tsc-watch --onSuccess \"yarn run build:rollup\""
+  },
+  "keywords": [],
+  "private": false,
+  "license": "MIT",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-typescript": "^11.1.4",
+    "@types/node": "^20.5.4",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "eslint": "^8.47.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.2",
+    "rollup": "^4.12.1",
+    "rollup-plugin-dts": "^6.0.2",
+    "ts-node": "^10.9.1",
+    "tsc-watch": "^6.0.4",
+    "typescript": "^5.1.6",
+    "vite": "^5.1.5",
+    "vite-plugin-dts": "^3.5.3"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:prettier/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": "warn"
+    }
+  }
+}

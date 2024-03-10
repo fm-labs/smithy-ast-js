@@ -1,0 +1,20 @@
+{
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "extends": "@tsconfig/node16/tsconfig.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "outDir": "out",
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+  },
+  "include": [
+    "./src"
+  ],
+  "exclude": ["node_modules"]
+}
