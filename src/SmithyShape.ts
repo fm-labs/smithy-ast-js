@@ -1,5 +1,6 @@
 import { SmithyAst } from './SmithyAst.js'
-import { ModelShape } from './types.js'
+import { AbstractModelShape } from './types.js'
+import { SmithyTrait } from './SmithyTrait.js'
 
 export class SmithyShape {
   public readonly namespace: string
@@ -9,7 +10,7 @@ export class SmithyShape {
   constructor(
     protected readonly ast: SmithyAst,
     protected readonly shapeId: string,
-    protected readonly shape: ModelShape,
+    protected readonly shape: AbstractModelShape,
   ) {
     this.namespace = shapeId.split('#')[0]
     this.name = shapeId.split('#')[1]
@@ -28,12 +29,34 @@ export class SmithyShape {
     return this.shapeType
   }
 
-  public getShape(): ModelShape {
+  public getShape(): AbstractModelShape {
     return this.shape
   }
 
-  //   public toSmithy(): string {
-  //     return `
-  // ${this.shapeType} ${this.name}`
-  //   }
+  public listTraits(): string[] {
+    if (!this.shape.traits) {
+      return []
+    }
+    return Object.keys(this.shape.traits)
+  }
+
+  public getTraits(): SmithyTrait[] {
+    if (!this.shape.traits) {
+      return []
+    }
+    return Object.entries(this.shape.traits).map(([traitName, traitValue]) => {
+      return new SmithyTrait(this, traitName, traitValue)
+    })
+  }
+
+  public getTrait(traitName: string): SmithyTrait | undefined {
+    if (!this.shape.traits) {
+      return undefined
+    }
+    const trait = Object.entries(this.shape.traits).find(([key]) => key === traitName)
+    if (!trait) {
+      return undefined
+    }
+    return new SmithyTrait(this, trait[0], trait[1])
+  }
 }

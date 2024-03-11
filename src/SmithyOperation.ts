@@ -42,39 +42,23 @@ export class SmithyOperation extends SmithyShape {
 
   public getInput() {
     const inputShapeId = this.operation.input.target
-    return new SmithyOperationInput(
-      this.ast,
-      inputShapeId,
-      this.ast.getShape(inputShapeId) as StructureShape,
-    )
+    const inputShape = this.ast.getShape(inputShapeId) as StructureShape
+    if (inputShape === null) {
+      return inputShape
+    } else if (!inputShape) {
+      throw new Error(`Input shape not found: ${inputShapeId}`)
+    }
+    return new SmithyOperationInput(this.ast, inputShapeId, inputShape)
   }
 
   public getOutput() {
     const outputShapeId = this.operation.output.target
-    return new SmithyOperationOutput(
-      this.ast,
-      outputShapeId,
-      this.ast.getShape(outputShapeId) as StructureShape,
-    )
-  }
-
-  public toSmithy(): string {
-    // const lifecycleTrait = ''
-    // if (this.operationId.startsWith('Create')) {
-    //   lifecycleTrait = 'create'
-    // } else if (this.operationId.startsWith('Read')) {
-    //   lifecycleTrait = 'read'
-    // } else if (this.operationId.startsWith('Update')) {
-    //   lifecycleTrait = 'update'
-    // }
-
-    const input = this.operation.input.target.split('#')[1]
-    const output = this.operation.output.target.split('#')[1]
-
-    return `
-operation ${this.name} {
-  input: ${input}
-  output: ${output}
-}`
+    const outputShape = this.ast.getShape(outputShapeId) as StructureShape
+    if (outputShape === null) {
+      return null
+    } else if (!outputShape) {
+      throw new Error(`Input shape not found: ${outputShapeId}`)
+    }
+    return new SmithyOperationOutput(this.ast, outputShapeId, outputShape)
   }
 }

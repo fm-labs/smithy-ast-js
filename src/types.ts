@@ -1,13 +1,6 @@
-export type SmithyModel = {
-  smithy?: string
-  metadaata?: any
-  shapes: {
-    [key: string]: ModelShape
-  }
-  operations?: any
-}
+export type SmithyVersion = '1.0' | '2.0' | string
 
-export type ShapeTypes =
+export type ModelShapeTypes =
   | 'structure'
   | 'service'
   | 'operation'
@@ -30,47 +23,69 @@ export type ShapeTypes =
   | 'bigDecimal'
   | 'bigInteger'
 
-export type ModelShape = {
-  type: ShapeTypes
-  traits?: Record<string, any>
+// Node values are JSON-like values used to define metadata and the value of an applied trait.
+export type NodeValue = number | string | boolean
+export type NodeValueType = NodeValue | NodeValue[] | Record<string, NodeValue>
+
+export type ModelMetadata = {
+  [key: string]: NodeValueType
+}
+
+// export type ModelTraits = {
+//   [key: string]: NodeValueType
+// }
+//
+// export type ModelTraitRecords = Record<string, NodeValueType>
+
+export type Model = {
+  metadaata?: ModelMetadata
+  smithy: SmithyVersion
+  shapes: {
+    [key: string]: AbstractModelShape
+  }
+}
+
+export type AbstractModelShape = {
+  type: ModelShapeTypes
+  traits?: Record<string, NodeValueType>
 }
 
 export type ShapeReference = {
   target: string
 }
 
-export type Member = ShapeReference & {
-  traits?: Record<string, any>
+export type ShapeMember = ShapeReference & {
+  traits?: Record<string, NodeValueType>
 }
 
-export type ListShape = ModelShape & {
+export type ListShape = AbstractModelShape & {
   type: 'list'
   member: ShapeReference
 }
 
-export type MapShape = ModelShape & {
+export type MapShape = AbstractModelShape & {
   type: 'map'
   key: ShapeReference
   value: ShapeReference
 }
 
-export type UnionShape = ModelShape & {
+export type UnionShape = AbstractModelShape & {
   type: 'union'
-  members: Record<string, Member>
+  members: Record<string, ShapeMember>
 }
 
-export type EnumShape = ModelShape & {
+export type EnumShape = AbstractModelShape & {
   type: 'enum'
-  members: Record<string, Member>
+  members: Record<string, ShapeMember>
 }
 
-export type StructureShape = ModelShape & {
+export type StructureShape = AbstractModelShape & {
   type: 'structure'
   required?: string[]
-  members: Record<string, Member>
+  members: Record<string, ShapeMember>
 }
 
-export type ServiceShape = ModelShape & {
+export type ServiceShape = AbstractModelShape & {
   type: 'service'
   version: string
   operations: Record<string, ShapeReference> // Binds a list of operations to the service. Each reference MUST target an operation.
@@ -79,14 +94,14 @@ export type ServiceShape = ModelShape & {
   //@todo rename?: any
 }
 
-export type OperationShape = ModelShape & {
+export type OperationShape = AbstractModelShape & {
   type: 'operation'
   input: ShapeReference // Binds an input shape to the operation. The reference MUST target a structure shape.
   output: ShapeReference // Binds an output shape to the operation. The reference MUST target a structure shape.
   errors?: Record<string, ShapeReference>
 }
 
-export type ResourceShape = ModelShape & {
+export type ResourceShape = AbstractModelShape & {
   type: 'resource'
   identifiers: Record<string, ShapeReference> // Defines identifier names and shape IDs used to identify the resource.
   properties: Record<string, ShapeReference> // Defines a map of property string names to shape IDs that enumerate the properties of the resource.

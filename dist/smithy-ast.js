@@ -54,6 +54,61 @@ const parseServiceOperations = (service) => {
     }
 };
 
+/**
+ * SmithyTrait represents a trait in the Smithy model.
+ *
+ * Trait index:
+ * @link https://smithy.io/2.0/trait-index.html
+ */
+class SmithyTrait {
+    shape;
+    traitId;
+    traitValue;
+    // common traits - incomplete list of known traits
+    static AUTH = 'smithy.api#auth';
+    static CORS = 'smithy.api#cors';
+    static DEFAULT = 'smithy.api#default';
+    static DEPRECATED = 'smithy.api#deprecated';
+    static DOCUMENTATION = 'smithy.api#documentation';
+    static ENDPOINT = 'smithy.api#endpoint';
+    static ENUM = 'smithy.api#enum';
+    static ENUM_VALUE = 'smithy.api#enumValue';
+    static ERROR = 'smithy.api#error';
+    static EXAMPLES = 'smithy.api#examples';
+    static INPUT = 'smithy.api#input';
+    static INTERNAL = 'smithy.api#internal';
+    static JSON_NAME = 'smithy.api#jsonName';
+    static LENGTH = 'smithy.api#length';
+    static OUTPUT = 'smithy.api#output';
+    static READONLY = 'smithy.api#readonly';
+    static REQUIRED = 'smithy.api#required';
+    static TITLE = 'smithy.api#title';
+    namespace;
+    name;
+    constructor(shape, traitId, traitValue) {
+        this.shape = shape;
+        this.traitId = traitId;
+        this.traitValue = traitValue;
+        if (!traitId.includes('#')) {
+            this.traitId = `smithy.api#${traitId}`;
+        }
+        this.namespace = traitId.split('#')[0];
+        this.name = traitId.split('#')[1];
+    }
+    getId() {
+        return this.traitId;
+    }
+    getNamespace() {
+        return this.namespace;
+    }
+    getName() {
+        return this.name;
+    }
+    getValue() {
+        return this.traitValue;
+    }
+}
+
 class SmithyShape {
     ast;
     shapeId;
@@ -81,6 +136,30 @@ class SmithyShape {
     getShape() {
         return this.shape;
     }
+    listTraits() {
+        if (!this.shape.traits) {
+            return [];
+        }
+        return Object.keys(this.shape.traits);
+    }
+    getTraits() {
+        if (!this.shape.traits) {
+            return [];
+        }
+        return Object.entries(this.shape.traits).map(([traitName, traitValue]) => {
+            return new SmithyTrait(this, traitName, traitValue);
+        });
+    }
+    getTrait(traitName) {
+        if (!this.shape.traits) {
+            return undefined;
+        }
+        const trait = Object.entries(this.shape.traits).find(([key]) => key === traitName);
+        if (!trait) {
+            return undefined;
+        }
+        return new SmithyTrait(this, trait[0], trait[1]);
+    }
 }
 
 class SmithyStructure extends SmithyShape {
@@ -92,6 +171,67 @@ class SmithyStructure extends SmithyShape {
         this.ast = ast;
         this.shapeId = shapeId;
         this.shape = shape;
+    }
+    getShape() {
+        return this.shape;
+    }
+    listMembers() {
+        return Object.keys(this.shape.members);
+    }
+    getMembers() {
+        return Object.entries(this.shape.members).map(([memberName, memberShape]) => {
+            return new SmithyStructureMember(this.ast, memberName, memberShape);
+        });
+    }
+    getMember(memberName) {
+        const member = this.shape.members[memberName];
+        if (!member) {
+            return undefined;
+        }
+        return new SmithyStructureMember(this.ast, memberName, member);
+    }
+}
+class SmithyStructureMember {
+    ast;
+    memberId;
+    member;
+    constructor(ast, memberId, member) {
+        this.ast = ast;
+        this.memberId = memberId;
+        this.member = member;
+    }
+    getName() {
+        return this.memberId;
+    }
+    getTarget() {
+        return this.member.target;
+    }
+    getShape() {
+        return this.ast.getShape(this.member.target);
+    }
+    listTraits() {
+        if (!this.member.traits) {
+            return [];
+        }
+        return Object.keys(this.member.traits);
+    }
+    getTraits() {
+        if (!this.member.traits) {
+            return [];
+        }
+        return Object.entries(this.member.traits).map(([traitName, traitValue]) => {
+            return new SmithyTrait(this, traitName, traitValue);
+        });
+    }
+    getTrait(traitName) {
+        if (!this.member.traits) {
+            return undefined;
+        }
+        const trait = Object.entries(this.member.traits).find(([key]) => key === traitName);
+        if (!trait) {
+            return undefined;
+        }
+        return new SmithyTrait(this, trait[0], trait[1]);
     }
 }
 
@@ -135,28 +275,25 @@ class SmithyOperation extends SmithyShape {
     }
     getInput() {
         const inputShapeId = this.operation.input.target;
-        return new SmithyOperationInput(this.ast, inputShapeId, this.ast.getShape(inputShapeId));
+        const inputShape = this.ast.getShape(inputShapeId);
+        if (inputShape === null) {
+            return inputShape;
+        }
+        else if (!inputShape) {
+            throw new Error(`Input shape not found: ${inputShapeId}`);
+        }
+        return new SmithyOperationInput(this.ast, inputShapeId, inputShape);
     }
     getOutput() {
         const outputShapeId = this.operation.output.target;
-        return new SmithyOperationOutput(this.ast, outputShapeId, this.ast.getShape(outputShapeId));
-    }
-    toSmithy() {
-        // const lifecycleTrait = ''
-        // if (this.operationId.startsWith('Create')) {
-        //   lifecycleTrait = 'create'
-        // } else if (this.operationId.startsWith('Read')) {
-        //   lifecycleTrait = 'read'
-        // } else if (this.operationId.startsWith('Update')) {
-        //   lifecycleTrait = 'update'
-        // }
-        const input = this.operation.input.target.split('#')[1];
-        const output = this.operation.output.target.split('#')[1];
-        return `
-operation ${this.name} {
-  input: ${input}
-  output: ${output}
-}`;
+        const outputShape = this.ast.getShape(outputShapeId);
+        if (outputShape === null) {
+            return null;
+        }
+        else if (!outputShape) {
+            throw new Error(`Input shape not found: ${outputShapeId}`);
+        }
+        return new SmithyOperationOutput(this.ast, outputShapeId, outputShape);
     }
 }
 
@@ -248,6 +385,9 @@ class SmithyAst {
      * @param shapeId
      */
     getShape(shapeId) {
+        if (shapeId === 'smithy.api#Unit') {
+            return null;
+        }
         if (!this.model.shapes[shapeId]) {
             return undefined;
         }
@@ -591,6 +731,8 @@ exports.SmithyOperation = SmithyOperation;
 exports.SmithyService = SmithyService;
 exports.SmithyShape = SmithyShape;
 exports.SmithyStructure = SmithyStructure;
+exports.SmithyStructureMember = SmithyStructureMember;
+exports.SmithyTrait = SmithyTrait;
 exports.getDistinctShapeTypes = getDistinctShapeTypes;
 exports.parseModel = parseModel;
 exports.parseService = parseService;

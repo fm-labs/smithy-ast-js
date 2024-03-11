@@ -1,18 +1,18 @@
 import {
-  SmithyModel,
+  Model,
   OperationShape,
   ServiceShape,
   StructureShape,
   ShapeReference,
-  ModelShape,
+  AbstractModelShape,
 } from './types.js'
 import { SmithyOperation } from './SmithyOperation.js'
 import { SmithyService } from './SmithyService.js'
 
 export class SmithyAst {
-  private readonly model: SmithyModel
+  private readonly model: Model
 
-  constructor(model: SmithyModel) {
+  constructor(model: Model) {
     this.model = model
   }
 
@@ -63,7 +63,10 @@ export class SmithyAst {
    * Get a shape by ID
    * @param shapeId
    */
-  public getShape(shapeId: string): ModelShape | undefined {
+  public getShape(shapeId: string): AbstractModelShape | null | undefined {
+    if (shapeId === 'smithy.api#Unit') {
+      return null
+    }
     if (!this.model.shapes[shapeId]) {
       return undefined
     }
@@ -74,7 +77,7 @@ export class SmithyAst {
    * Get a shape by ref
    * @param ref
    */
-  public getShapeByRef(ref: ShapeReference): ModelShape | undefined {
+  public getShapeByRef(ref: ShapeReference): AbstractModelShape | undefined {
     if (!this.model.shapes[ref.target]) {
       return undefined
     }
@@ -158,14 +161,14 @@ export class SmithyAst {
    * @param json
    */
   public static fromJson(json: string): SmithyAst {
-    return new SmithyAst(JSON.parse(json) as SmithyModel)
+    return new SmithyAst(JSON.parse(json) as Model)
   }
 
   /**
    * Create a SmithyAst from a model
    * @param model
    */
-  public static fromModel(model: SmithyModel): SmithyAst {
+  public static fromModel(model: Model): SmithyAst {
     return new SmithyAst(model)
   }
 }

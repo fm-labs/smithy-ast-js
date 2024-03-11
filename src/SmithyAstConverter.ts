@@ -5,6 +5,7 @@ import {
   MapShape,
   OperationShape,
   ServiceShape,
+  StructureShape,
   UnionShape,
 } from './types.js'
 import { SmithyService } from './SmithyService.js'
@@ -30,7 +31,7 @@ export class SmithyAstConverter {
       .map((shapeId) => {
         switch (model.shapes[shapeId].type) {
           case 'structure':
-            return new SmithyStructure(this.ast, shapeId, model.shapes[shapeId])
+            return new SmithyStructure(this.ast, shapeId, model.shapes[shapeId] as StructureShape)
           case 'enum':
             return new SmithyEnum(this.ast, shapeId, model.shapes[shapeId] as EnumShape)
           case 'list':

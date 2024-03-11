@@ -23,21 +23,4 @@ export class SmithyEnum extends SmithyShape {
     })
     return Object.assign({}, ...enumMembers)
   }
-
-  //   public toSmithy(): string {
-  //     const enumMembers = Object.entries(this.shape.members).map(([key, value]) => {
-  //       let enumValue = null
-  //       if (value?.traits && 'smithy.api#enumValue' in value.traits) {
-  //         enumValue = value.traits['smithy.api#enumValue']
-  //       }
-  //       return `
-  //     ${enumValue ? '@enumValue("' + enumValue + '")' : ''}
-  //     ${key}`
-  //     })
-  //
-  //     return `
-  // ${this.shapeType} ${this.name} {
-  // ${enumMembers.join('\n')}
-  // }`
-  //   }
 }

@@ -43,33 +43,4 @@ export class SmithyService extends SmithyShape {
     }
     return new SmithyOperation(this.ast, operationId, operationShape)
   }
-
-  //   public toSmithy(): string {
-  //     // operations
-  //     const operations = this.ast.listServiceOperations(this.shapeId)
-  //     const operationInstances = operations.map((operationId) => {
-  //       return new SmithyOperation(
-  //         this.ast,
-  //         operationId,
-  //         this.ast.getShape(operationId) as OperationShape,
-  //       )
-  //     })
-  //
-  //     const operationStrings = operationInstances.map((operation) => {
-  //       return operation.toSmithy()
-  //     })
-  //     const operationIds = operations.map((operation) => {
-  //       return operation.split('#')[1]
-  //     })
-  //
-  //     return `
-  // service ${this.name} {
-  //   version: "${this.version}"
-  //   operations: [${operationIds.join(',')}]
-  //   resources: []
-  // }
-  //
-  // ${operationStrings.join('\n\n')}
-  // `
-  //   }
 }
