@@ -65,6 +65,9 @@ class SmithyTrait {
     traitId;
     traitValue;
     // common traits - incomplete list of known traits
+    static AWS_ARN = 'aws.api#arn';
+    static AWS_ARN_REFERENCE = 'aws.api#arnReference';
+    static AWS_TAGGABLE = 'aws.api#taggable';
     static AUTH = 'smithy.api#auth';
     static CORS = 'smithy.api#cors';
     static DEFAULT = 'smithy.api#default';
@@ -80,9 +83,11 @@ class SmithyTrait {
     static JSON_NAME = 'smithy.api#jsonName';
     static LENGTH = 'smithy.api#length';
     static OUTPUT = 'smithy.api#output';
+    static PAGINATED = 'smithy.api#paginated';
     static READONLY = 'smithy.api#readonly';
     static REQUIRED = 'smithy.api#required';
     static TITLE = 'smithy.api#title';
+    static WAITABLE = 'smithy.waiters#waitable';
     namespace;
     name;
     constructor(shape, traitId, traitValue) {
@@ -109,39 +114,71 @@ class SmithyTrait {
     }
 }
 
-class SmithyShape {
+class SmithyAstNode {
     ast;
     shapeId;
     shape;
     namespace;
     name;
-    shapeType;
+    /**
+     * Constructor.
+     *
+     * @param ast
+     * @param shapeId
+     * @param shape
+     * @protected
+     */
     constructor(ast, shapeId, shape) {
         this.ast = ast;
         this.shapeId = shapeId;
         this.shape = shape;
         this.namespace = shapeId.split('#')[0];
         this.name = shapeId.split('#')[1];
-        this.shapeType = shape.type;
     }
+    /**
+     * Returns the AST instance.
+     * @returns {SmithyAst}
+     */
+    getAst() {
+        return this.ast;
+    }
+    /**
+     * Returns the full-qualified shape ID.
+     *
+     * @link https://smithy.io/2.0/spec/model.html#shape-id-abnf
+     * @returns {string}
+     */
+    getId() {
+        return this.shapeId;
+    }
+    /**
+     * Returns the namespace of the shape.
+     * @returns {string}
+     */
     getNamespace() {
         return this.namespace;
     }
+    /**
+     * Returns the name of the shape without the namespace.
+     * @returns {string}
+     */
     getName() {
         return this.name;
     }
-    getShapeType() {
-        return this.shapeType;
-    }
-    getShape() {
-        return this.shape;
-    }
+    /**
+     * Get a list of traits applied to the shape.
+     * @returns {string[]}
+     */
     listTraits() {
         if (!this.shape.traits) {
             return [];
         }
         return Object.keys(this.shape.traits);
     }
+    /**
+     * Get a list of trait node instances applied to the shape.
+     * @returns {SmithyTrait[]}
+     */
     getTraits() {
         if (!this.shape.traits) {
             return [];
@@ -150,6 +187,11 @@ class SmithyShape {
             return new SmithyTrait(this, traitName, traitValue);
         });
     }
+    /**
+     * Get a trait node instance by name.
+     * @param traitName
+     * @returns {SmithyTrait | undefined}
+     */
     getTrait(traitName) {
         if (!this.shape.traits) {
             return undefined;
@@ -159,6 +201,106 @@ class SmithyShape {
             return undefined;
         }
         return new SmithyTrait(this, trait[0], trait[1]);
+    }
+    /**
+     * Convenience method to get the 'smithy.api#required' trait value.
+     * @returns {boolean}
+     */
+    isRequired() {
+        const trait = this.getTrait(SmithyTrait.REQUIRED);
+        return !!trait;
+    }
+    /**
+     * Convenience method to get the 'documentation' trait value.
+     * @returns {string | undefined}
+     */
+    getDocumentation() {
+        const trait = this.getTrait(SmithyTrait.DOCUMENTATION);
+        return trait?.getValue();
+    }
+    /**
+     * Convenience method to get the 'smithy.api#paginated' trait value.
+     * @returns {SmithyTrait | undefined}
+     */
+    getPaginatedTrait() {
+        return this.getTrait(SmithyTrait.PAGINATED);
+    }
+    /**
+     * Convenience method to get the 'smithy.waiters#waitable' trait value.
+     * @returns {SmithyTrait | undefined}
+     */
+    getWaitableTrait() {
+        return this.getTrait(SmithyTrait.WAITABLE);
+    }
+}
+
+class SmithyShape extends SmithyAstNode {
+    ast;
+    shapeId;
+    shape;
+    // public readonly namespace: string
+    // public readonly name: string
+    shapeType;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+        // this.namespace = shapeId.split('#')[0]
+        // this.name = shapeId.split('#')[1]
+        this.shapeType = shape.type;
+    }
+    // public getId(): string {
+    //   return this.shapeId
+    // }
+    //
+    // public getNamespace(): string {
+    //   return this.namespace
+    // }
+    //
+    // public getName(): string {
+    //   return this.name
+    // }
+    getShapeType() {
+        return this.shapeType;
+    }
+    getShape() {
+        return this.shape;
+    }
+}
+
+class SmithyAggregateShape extends SmithyShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+}
+
+class SmithyMember extends SmithyAstNode {
+    struct;
+    name;
+    shape;
+    constructor(struct, name, shape) {
+        const _memberId = `${struct.getNamespace()}#${struct.getName()}$${name}`;
+        super(struct.getAst(), _memberId, shape);
+        this.struct = struct;
+        this.name = name;
+        this.shape = shape;
+    }
+    getTarget() {
+        return this.shape.target;
+    }
+    getTargetShape() {
+        return this.ast.getShape(this.shape.target);
+    }
+    getTargetStructure() {
+        const shape = this.ast.getShape(this.shape.target);
+        return new SmithyStructure(this.ast, this.shape.target, shape);
     }
 }
 
@@ -172,66 +314,40 @@ class SmithyStructure extends SmithyShape {
         this.shapeId = shapeId;
         this.shape = shape;
     }
+    /**
+     * Get the model shape of the structure
+     * @returns {StructureShape}
+     */
     getShape() {
         return this.shape;
     }
+    /**
+     * List the member IDs of the structure
+     * @returns {string[]}
+     */
     listMembers() {
         return Object.keys(this.shape.members);
     }
+    /**
+     * Get the member instances of the structure
+     * @returns {SmithyMember[]}
+     */
     getMembers() {
         return Object.entries(this.shape.members).map(([memberName, memberShape]) => {
-            return new SmithyStructureMember(this.ast, memberName, memberShape);
+            return new SmithyMember(this, memberName, memberShape);
         });
     }
+    /**
+     * Get a member instance by member name
+     * @param memberName
+     * @returns {SmithyMember | undefined}
+     */
     getMember(memberName) {
         const member = this.shape.members[memberName];
         if (!member) {
             return undefined;
         }
-        return new SmithyStructureMember(this.ast, memberName, member);
-    }
-}
-class SmithyStructureMember {
-    ast;
-    memberId;
-    member;
-    constructor(ast, memberId, member) {
-        this.ast = ast;
-        this.memberId = memberId;
-        this.member = member;
-    }
-    getName() {
-        return this.memberId;
-    }
-    getTarget() {
-        return this.member.target;
-    }
-    getShape() {
-        return this.ast.getShape(this.member.target);
-    }
-    listTraits() {
-        if (!this.member.traits) {
-            return [];
-        }
-        return Object.keys(this.member.traits);
-    }
-    getTraits() {
-        if (!this.member.traits) {
-            return [];
-        }
-        return Object.entries(this.member.traits).map(([traitName, traitValue]) => {
-            return new SmithyTrait(this, traitName, traitValue);
-        });
-    }
-    getTrait(traitName) {
-        if (!this.member.traits) {
-            return undefined;
-        }
-        const trait = Object.entries(this.member.traits).find(([key]) => key === traitName);
-        if (!trait) {
-            return undefined;
-        }
-        return new SmithyTrait(this, trait[0], trait[1]);
+        return new SmithyMember(this, memberName, member);
     }
 }
 
@@ -270,9 +386,6 @@ class SmithyOperation extends SmithyShape {
     getInputTarget() {
         return this.operation.input.target;
     }
-    getOutputTarget() {
-        return this.operation.output.target;
-    }
     getInput() {
         const inputShapeId = this.operation.input.target;
         const inputShape = this.ast.getShape(inputShapeId);
@@ -283,6 +396,9 @@ class SmithyOperation extends SmithyShape {
             throw new Error(`Input shape not found: ${inputShapeId}`);
         }
         return new SmithyOperationInput(this.ast, inputShapeId, inputShape);
+    }
+    getOutputTarget() {
+        return this.operation.output.target;
     }
     getOutput() {
         const outputShapeId = this.operation.output.target;
@@ -297,20 +413,41 @@ class SmithyOperation extends SmithyShape {
     }
 }
 
+class SmithyResource extends SmithyShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+}
+
+class SmithyError extends SmithyShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+}
+
 class SmithyService extends SmithyShape {
     ast;
     shapeId;
-    service;
+    shape;
     version;
-    constructor(ast, shapeId, service) {
-        super(ast, shapeId, service);
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
         this.ast = ast;
         this.shapeId = shapeId;
-        this.service = service;
-        this.version = service.version;
-    }
-    getNamespace() {
-        return this.namespace;
+        this.shape = shape;
+        this.version = shape.version;
     }
     /**
      * Get the service id
@@ -319,19 +456,62 @@ class SmithyService extends SmithyShape {
     getServiceId() {
         return this.name;
     }
+    /**
+     * Get a list of operation IDs
+     * @returns {string[]}
+     */
     listOperations() {
         return this.ast.listServiceOperations(this.shapeId);
     }
-    listResources() {
-        //return this.ast.listServiceResources(this.shapeId)
-        return []; // @todo
-    }
+    /**
+     * Get an operation instance by ID
+     * @param operationId
+     * @returns {SmithyResource | null}
+     */
     getOperation(operationId) {
         const operationShape = this.ast.getShape(operationId);
         if (!operationShape) {
             return null;
         }
         return new SmithyOperation(this.ast, operationId, operationShape);
+    }
+    /**
+     * Get a list of resource IDs
+     * @returns {string[]}
+     */
+    listResources() {
+        return this.ast.listServiceResources(this.shapeId);
+    }
+    /**
+     * Get a resource instance by ID
+     * @param resourceId
+     * @returns {SmithyResource | null}
+     */
+    getResource(resourceId) {
+        const resourceShape = this.ast.getShape(resourceId);
+        if (!resourceShape) {
+            return null;
+        }
+        return new SmithyResource(this.ast, resourceId, resourceShape);
+    }
+    /**
+     * Get a list of error IDs
+     * @returns {string[]}
+     */
+    listErrors() {
+        return this.ast.listServiceErrors(this.shapeId);
+    }
+    /**
+     * Get an error instance by ID
+     * @param errorId
+     * @returns {SmithyError | null}
+     */
+    getError(errorId) {
+        const errorShape = this.ast.getShape(errorId);
+        if (!errorShape) {
+            return null;
+        }
+        return new SmithyError(this.ast, errorId, errorShape);
     }
 }
 
@@ -379,6 +559,48 @@ class SmithyAst {
             operations.push(operationRef.target);
         }
         return operations;
+    }
+    /**
+     * List all resources for a service
+     * @param serviceId
+     */
+    listServiceResources(serviceId) {
+        const service = this.model.shapes[serviceId];
+        if (!service || service.type !== 'service') {
+            console.warn('Service not found', serviceId);
+            return [];
+        }
+        const resources = [];
+        for (const resourceId in service.resources) {
+            const resourceRef = service.resources[resourceId];
+            // const resource = this.model.shapes[resourceRef.target] as ResourceShape
+            // if (!resource || resource.type !== 'resource') {
+            //   continue
+            // }
+            resources.push(resourceRef.target);
+        }
+        return resources;
+    }
+    /**
+     * List all errors for a service
+     * @param serviceId
+     */
+    listServiceErrors(serviceId) {
+        const service = this.model.shapes[serviceId];
+        if (!service || service.type !== 'service') {
+            console.warn('Service not found', serviceId);
+            return [];
+        }
+        const errors = [];
+        for (const errorId in service.errors) {
+            const errorRef = service.errors[errorId];
+            // const error = this.model.shapes[errorRef.target] as ErrorShape
+            // if (!error || error.type !== 'error') {
+            //   continue
+            // }
+            errors.push(errorRef.target);
+        }
+        return errors;
     }
     /**
      * Get a shape by ID
@@ -470,6 +692,17 @@ class SmithyAst {
         return new SmithyOperation(this, operationId, operationShape);
     }
     /**
+     * Get an resource instance by ID
+     * @param resourceId
+     */
+    getResource(resourceId) {
+        const resourceShape = this.getShape(resourceId);
+        if (!resourceShape) {
+            return null;
+        }
+        return new SmithyResource(this, resourceId, resourceShape);
+    }
+    /**
      * Create a SmithyAst from a JSON string
      * @param json
      */
@@ -482,18 +715,6 @@ class SmithyAst {
      */
     static fromModel(model) {
         return new SmithyAst(model);
-    }
-}
-
-class SmithyAggregateShape extends SmithyShape {
-    ast;
-    shapeId;
-    shape;
-    constructor(ast, shapeId, shape) {
-        super(ast, shapeId, shape);
-        this.ast = ast;
-        this.shapeId = shapeId;
-        this.shape = shape;
     }
 }
 
@@ -726,12 +947,15 @@ structure ${shape.name} {
 exports.SmithyAggregateShape = SmithyAggregateShape;
 exports.SmithyAst = SmithyAst;
 exports.SmithyAstConverter = SmithyAstConverter;
+exports.SmithyAstNode = SmithyAstNode;
 exports.SmithyEnum = SmithyEnum;
+exports.SmithyError = SmithyError;
+exports.SmithyMember = SmithyMember;
 exports.SmithyOperation = SmithyOperation;
+exports.SmithyResource = SmithyResource;
 exports.SmithyService = SmithyService;
 exports.SmithyShape = SmithyShape;
 exports.SmithyStructure = SmithyStructure;
-exports.SmithyStructureMember = SmithyStructureMember;
 exports.SmithyTrait = SmithyTrait;
 exports.getDistinctShapeTypes = getDistinctShapeTypes;
 exports.parseModel = parseModel;

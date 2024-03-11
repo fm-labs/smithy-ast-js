@@ -5,9 +5,11 @@ import {
   StructureShape,
   ShapeReference,
   AbstractModelShape,
+  ResourceShape,
 } from './types.js'
 import { SmithyOperation } from './SmithyOperation.js'
 import { SmithyService } from './SmithyService.js'
+import { SmithyResource } from './SmithyResource.js'
 
 export class SmithyAst {
   private readonly model: Model
@@ -57,6 +59,50 @@ export class SmithyAst {
       operations.push(operationRef.target)
     }
     return operations
+  }
+
+  /**
+   * List all resources for a service
+   * @param serviceId
+   */
+  public listServiceResources(serviceId: string) {
+    const service = this.model.shapes[serviceId] as ServiceShape
+    if (!service || service.type !== 'service') {
+      console.warn('Service not found', serviceId)
+      return []
+    }
+    const resources: string[] = []
+    for (const resourceId in service.resources) {
+      const resourceRef = service.resources[resourceId]
+      // const resource = this.model.shapes[resourceRef.target] as ResourceShape
+      // if (!resource || resource.type !== 'resource') {
+      //   continue
+      // }
+      resources.push(resourceRef.target)
+    }
+    return resources
+  }
+
+  /**
+   * List all errors for a service
+   * @param serviceId
+   */
+  public listServiceErrors(serviceId: string) {
+    const service = this.model.shapes[serviceId] as ServiceShape
+    if (!service || service.type !== 'service') {
+      console.warn('Service not found', serviceId)
+      return []
+    }
+    const errors: string[] = []
+    for (const errorId in service.errors) {
+      const errorRef = service.errors[errorId]
+      // const error = this.model.shapes[errorRef.target] as ErrorShape
+      // if (!error || error.type !== 'error') {
+      //   continue
+      // }
+      errors.push(errorRef.target)
+    }
+    return errors
   }
 
   /**
@@ -154,6 +200,18 @@ export class SmithyAst {
       return null
     }
     return new SmithyOperation(this, operationId, operationShape)
+  }
+
+  /**
+   * Get an resource instance by ID
+   * @param resourceId
+   */
+  public getResource(resourceId: string): SmithyResource | null {
+    const resourceShape = this.getShape(resourceId) as ResourceShape
+    if (!resourceShape) {
+      return null
+    }
+    return new SmithyResource(this, resourceId, resourceShape)
   }
 
   /**

@@ -1,15 +1,7 @@
 export type SmithyVersion = '1.0' | '2.0' | string
 
-export type ModelShapeTypes =
-  | 'structure'
-  | 'service'
-  | 'operation'
-  | 'resource'
-  | 'enum'
+export type SimpleShapeType =
   | 'string'
-  | 'list'
-  | 'union'
-  | 'map'
   | 'blob'
   | 'boolean'
   | 'timestamp'
@@ -22,6 +14,10 @@ export type ModelShapeTypes =
   | 'long'
   | 'bigDecimal'
   | 'bigInteger'
+  | 'enum'
+export type AggregateShapeType = 'list' | 'map' | 'union' | 'structure'
+export type ServiceShapeType = 'service' | 'operation' | 'resource'
+export type ModelShapeType = SimpleShapeType | AggregateShapeType | ServiceShapeType
 
 // Node values are JSON-like values used to define metadata and the value of an applied trait.
 export type NodeValue = number | string | boolean
@@ -46,7 +42,7 @@ export type Model = {
 }
 
 export type AbstractModelShape = {
-  type: ModelShapeTypes
+  type: ModelShapeType
   traits?: Record<string, NodeValueType>
 }
 
@@ -54,7 +50,7 @@ export type ShapeReference = {
   target: string
 }
 
-export type ShapeMember = ShapeReference & {
+export type MemberShape = ShapeReference & {
   traits?: Record<string, NodeValueType>
 }
 
@@ -71,18 +67,18 @@ export type MapShape = AbstractModelShape & {
 
 export type UnionShape = AbstractModelShape & {
   type: 'union'
-  members: Record<string, ShapeMember>
+  members: Record<string, MemberShape>
 }
 
 export type EnumShape = AbstractModelShape & {
   type: 'enum'
-  members: Record<string, ShapeMember>
+  members: Record<string, MemberShape>
 }
 
 export type StructureShape = AbstractModelShape & {
   type: 'structure'
   required?: string[]
-  members: Record<string, ShapeMember>
+  members: Record<string, MemberShape>
 }
 
 export type ServiceShape = AbstractModelShape & {
@@ -114,3 +110,5 @@ export type ResourceShape = AbstractModelShape & {
   operations?: ShapeReference[]
   collectionOperations?: ShapeReference[]
 }
+
+export type ErrorShape = StructureShape

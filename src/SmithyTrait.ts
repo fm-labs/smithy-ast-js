@@ -1,5 +1,4 @@
-import { SmithyShape } from './SmithyShape.js'
-import { SmithyStructureMember } from './SmithyStructure.js'
+import { SmithyAstNode } from './SmithyAstNode.js'
 
 /**
  * SmithyTrait represents a trait in the Smithy model.
@@ -9,6 +8,10 @@ import { SmithyStructureMember } from './SmithyStructure.js'
  */
 export class SmithyTrait {
   // common traits - incomplete list of known traits
+  static readonly AWS_ARN = 'aws.api#arn'
+  static readonly AWS_ARN_REFERENCE = 'aws.api#arnReference'
+  static readonly AWS_TAGGABLE = 'aws.api#taggable'
+
   static readonly AUTH = 'smithy.api#auth'
   static readonly CORS = 'smithy.api#cors'
   static readonly DEFAULT = 'smithy.api#default'
@@ -24,15 +27,17 @@ export class SmithyTrait {
   static readonly JSON_NAME = 'smithy.api#jsonName'
   static readonly LENGTH = 'smithy.api#length'
   static readonly OUTPUT = 'smithy.api#output'
+  static readonly PAGINATED = 'smithy.api#paginated'
   static readonly READONLY = 'smithy.api#readonly'
   static readonly REQUIRED = 'smithy.api#required'
   static readonly TITLE = 'smithy.api#title'
+  static readonly WAITABLE = 'smithy.waiters#waitable'
 
   public readonly namespace: string
   public readonly name: string
 
   constructor(
-    protected readonly shape: SmithyShape | SmithyStructureMember,
+    protected readonly shape: SmithyAstNode,
     protected readonly traitId: string,
     protected readonly traitValue: any,
   ) {
@@ -58,4 +63,10 @@ export class SmithyTrait {
   public getValue(): any {
     return this.traitValue
   }
+}
+
+export interface SmithyTraitsAwareInterface {
+  listTraits(): string[]
+  getTraits(): SmithyTrait[]
+  getTrait(traitName: string): SmithyTrait | undefined
 }

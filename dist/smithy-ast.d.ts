@@ -1,5 +1,8 @@
 type SmithyVersion = '1.0' | '2.0' | string;
-type ModelShapeTypes = 'structure' | 'service' | 'operation' | 'resource' | 'enum' | 'string' | 'list' | 'union' | 'map' | 'blob' | 'boolean' | 'timestamp' | 'document' | 'integer' | 'byte' | 'short' | 'float' | 'double' | 'long' | 'bigDecimal' | 'bigInteger';
+type SimpleShapeType = 'string' | 'blob' | 'boolean' | 'timestamp' | 'document' | 'integer' | 'byte' | 'short' | 'float' | 'double' | 'long' | 'bigDecimal' | 'bigInteger' | 'enum';
+type AggregateShapeType = 'list' | 'map' | 'union' | 'structure';
+type ServiceShapeType = 'service' | 'operation' | 'resource';
+type ModelShapeType = SimpleShapeType | AggregateShapeType | ServiceShapeType;
 type NodeValue = number | string | boolean;
 type NodeValueType = NodeValue | NodeValue[] | Record<string, NodeValue>;
 type ModelMetadata = {
@@ -13,13 +16,13 @@ type Model = {
     };
 };
 type AbstractModelShape = {
-    type: ModelShapeTypes;
+    type: ModelShapeType;
     traits?: Record<string, NodeValueType>;
 };
 type ShapeReference = {
     target: string;
 };
-type ShapeMember = ShapeReference & {
+type MemberShape = ShapeReference & {
     traits?: Record<string, NodeValueType>;
 };
 type ListShape = AbstractModelShape & {
@@ -33,16 +36,16 @@ type MapShape = AbstractModelShape & {
 };
 type UnionShape = AbstractModelShape & {
     type: 'union';
-    members: Record<string, ShapeMember>;
+    members: Record<string, MemberShape>;
 };
 type EnumShape = AbstractModelShape & {
     type: 'enum';
-    members: Record<string, ShapeMember>;
+    members: Record<string, MemberShape>;
 };
 type StructureShape = AbstractModelShape & {
     type: 'structure';
     required?: string[];
-    members: Record<string, ShapeMember>;
+    members: Record<string, MemberShape>;
 };
 type ServiceShape = AbstractModelShape & {
     type: 'service';
@@ -70,6 +73,7 @@ type ResourceShape = AbstractModelShape & {
     operations?: ShapeReference[];
     collectionOperations?: ShapeReference[];
 };
+type ErrorShape = StructureShape;
 
 declare const parseModel: (model: Model) => void;
 declare const getDistinctShapeTypes: (model: Model) => string[];
@@ -78,27 +82,79 @@ declare const parseTraits: (shape: AbstractModelShape) => void;
 declare const parseService: (service: ServiceShape) => void;
 declare const parseServiceOperations: (service: ServiceShape) => void;
 
-declare class SmithyStructure extends SmithyShape {
+declare abstract class SmithyAstNode implements SmithyTraitsAwareInterface {
     protected readonly ast: SmithyAst;
     protected readonly shapeId: string;
-    protected readonly shape: StructureShape;
-    constructor(ast: SmithyAst, shapeId: string, shape: StructureShape);
-    getShape(): AbstractModelShape;
-    listMembers(): string[];
-    getMembers(): SmithyStructureMember[];
-    getMember(memberName: string): SmithyStructureMember | undefined;
-}
-declare class SmithyStructureMember {
-    protected readonly ast: SmithyAst;
-    protected readonly memberId: string;
-    protected readonly member: ShapeMember;
-    constructor(ast: SmithyAst, memberId: string, member: ShapeMember);
+    protected readonly shape: AbstractModelShape | MemberShape;
+    readonly namespace: string;
+    readonly name: string;
+    /**
+     * Constructor.
+     *
+     * @param ast
+     * @param shapeId
+     * @param shape
+     * @protected
+     */
+    protected constructor(ast: SmithyAst, shapeId: string, shape: AbstractModelShape | MemberShape);
+    /**
+     * Returns the AST instance.
+     * @returns {SmithyAst}
+     */
+    getAst(): SmithyAst;
+    /**
+     * Returns the full-qualified shape ID.
+     *
+     * @link https://smithy.io/2.0/spec/model.html#shape-id-abnf
+     * @returns {string}
+     */
+    getId(): string;
+    /**
+     * Returns the namespace of the shape.
+     * @returns {string}
+     */
+    getNamespace(): string;
+    /**
+     * Returns the name of the shape without the namespace.
+     * @returns {string}
+     */
     getName(): string;
-    getTarget(): string;
-    getShape(): AbstractModelShape | null | undefined;
+    /**
+     * Get a list of traits applied to the shape.
+     * @returns {string[]}
+     */
     listTraits(): string[];
+    /**
+     * Get a list of trait node instances applied to the shape.
+     * @returns {SmithyTrait[]}
+     */
     getTraits(): SmithyTrait[];
+    /**
+     * Get a trait node instance by name.
+     * @param traitName
+     * @returns {SmithyTrait | undefined}
+     */
     getTrait(traitName: string): SmithyTrait | undefined;
+    /**
+     * Convenience method to get the 'smithy.api#required' trait value.
+     * @returns {boolean}
+     */
+    isRequired(): boolean;
+    /**
+     * Convenience method to get the 'documentation' trait value.
+     * @returns {string | undefined}
+     */
+    getDocumentation(): string | undefined;
+    /**
+     * Convenience method to get the 'smithy.api#paginated' trait value.
+     * @returns {SmithyTrait | undefined}
+     */
+    getPaginatedTrait(): SmithyTrait | undefined;
+    /**
+     * Convenience method to get the 'smithy.waiters#waitable' trait value.
+     * @returns {SmithyTrait | undefined}
+     */
+    getWaitableTrait(): SmithyTrait | undefined;
 }
 
 /**
@@ -108,9 +164,12 @@ declare class SmithyStructureMember {
  * @link https://smithy.io/2.0/trait-index.html
  */
 declare class SmithyTrait {
-    protected readonly shape: SmithyShape | SmithyStructureMember;
+    protected readonly shape: SmithyAstNode;
     protected readonly traitId: string;
     protected readonly traitValue: any;
+    static readonly AWS_ARN = "aws.api#arn";
+    static readonly AWS_ARN_REFERENCE = "aws.api#arnReference";
+    static readonly AWS_TAGGABLE = "aws.api#taggable";
     static readonly AUTH = "smithy.api#auth";
     static readonly CORS = "smithy.api#cors";
     static readonly DEFAULT = "smithy.api#default";
@@ -126,33 +185,71 @@ declare class SmithyTrait {
     static readonly JSON_NAME = "smithy.api#jsonName";
     static readonly LENGTH = "smithy.api#length";
     static readonly OUTPUT = "smithy.api#output";
+    static readonly PAGINATED = "smithy.api#paginated";
     static readonly READONLY = "smithy.api#readonly";
     static readonly REQUIRED = "smithy.api#required";
     static readonly TITLE = "smithy.api#title";
+    static readonly WAITABLE = "smithy.waiters#waitable";
     readonly namespace: string;
     readonly name: string;
-    constructor(shape: SmithyShape | SmithyStructureMember, traitId: string, traitValue: any);
+    constructor(shape: SmithyAstNode, traitId: string, traitValue: any);
     getId(): string;
     getNamespace(): string;
     getName(): string;
     getValue(): any;
 }
-
-declare class SmithyShape {
-    protected readonly ast: SmithyAst;
-    protected readonly shapeId: string;
-    protected readonly shape: AbstractModelShape;
-    readonly namespace: string;
-    readonly name: string;
-    readonly shapeType: string;
-    constructor(ast: SmithyAst, shapeId: string, shape: AbstractModelShape);
-    getNamespace(): string;
-    getName(): string;
-    getShapeType(): string;
-    getShape(): AbstractModelShape;
+interface SmithyTraitsAwareInterface {
     listTraits(): string[];
     getTraits(): SmithyTrait[];
     getTrait(traitName: string): SmithyTrait | undefined;
+}
+
+declare class SmithyShape extends SmithyAstNode implements SmithyTraitsAwareInterface {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: AbstractModelShape;
+    readonly shapeType: string;
+    constructor(ast: SmithyAst, shapeId: string, shape: AbstractModelShape);
+    getShapeType(): string;
+    getShape(): AbstractModelShape;
+}
+
+declare class SmithyMember extends SmithyAstNode implements SmithyTraitsAwareInterface {
+    protected readonly struct: SmithyStructure;
+    readonly name: string;
+    protected readonly shape: MemberShape;
+    constructor(struct: SmithyStructure, name: string, shape: MemberShape);
+    getTarget(): string;
+    getTargetShape(): AbstractModelShape | null | undefined;
+    getTargetStructure(): SmithyStructure;
+}
+
+declare class SmithyStructure extends SmithyShape {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: StructureShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: StructureShape);
+    /**
+     * Get the model shape of the structure
+     * @returns {StructureShape}
+     */
+    getShape(): StructureShape;
+    /**
+     * List the member IDs of the structure
+     * @returns {string[]}
+     */
+    listMembers(): string[];
+    /**
+     * Get the member instances of the structure
+     * @returns {SmithyMember[]}
+     */
+    getMembers(): SmithyMember[];
+    /**
+     * Get a member instance by member name
+     * @param memberName
+     * @returns {SmithyMember | undefined}
+     */
+    getMember(memberName: string): SmithyMember | undefined;
 }
 
 declare class SmithyOperationInput extends SmithyStructure {
@@ -173,26 +270,69 @@ declare class SmithyOperation extends SmithyShape {
     protected readonly operation: OperationShape;
     constructor(ast: SmithyAst, shapeId: string, operation: OperationShape);
     getInputTarget(): string;
-    getOutputTarget(): string;
     getInput(): SmithyOperationInput;
+    getOutputTarget(): string;
     getOutput(): SmithyOperationOutput | null;
+}
+
+declare class SmithyResource extends SmithyShape {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: ResourceShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: ResourceShape);
+}
+
+declare class SmithyError extends SmithyShape {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: ErrorShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: ErrorShape);
 }
 
 declare class SmithyService extends SmithyShape {
     protected readonly ast: SmithyAst;
     protected readonly shapeId: string;
-    protected readonly service: ServiceShape;
+    protected readonly shape: ServiceShape;
     readonly version: string;
-    constructor(ast: SmithyAst, shapeId: string, service: ServiceShape);
-    getNamespace(): string;
+    constructor(ast: SmithyAst, shapeId: string, shape: ServiceShape);
     /**
      * Get the service id
      * @deprecated Use getName() instead
      */
     getServiceId(): string;
+    /**
+     * Get a list of operation IDs
+     * @returns {string[]}
+     */
     listOperations(): string[];
-    listResources(): string[];
+    /**
+     * Get an operation instance by ID
+     * @param operationId
+     * @returns {SmithyResource | null}
+     */
     getOperation(operationId: string): SmithyOperation | null;
+    /**
+     * Get a list of resource IDs
+     * @returns {string[]}
+     */
+    listResources(): string[];
+    /**
+     * Get a resource instance by ID
+     * @param resourceId
+     * @returns {SmithyResource | null}
+     */
+    getResource(resourceId: string): SmithyResource | null;
+    /**
+     * Get a list of error IDs
+     * @returns {string[]}
+     */
+    listErrors(): string[];
+    /**
+     * Get an error instance by ID
+     * @param errorId
+     * @returns {SmithyError | null}
+     */
+    getError(errorId: string): SmithyError | null;
 }
 
 declare class SmithyAst {
@@ -211,6 +351,16 @@ declare class SmithyAst {
      * @param serviceId
      */
     listServiceOperations(serviceId: string): string[];
+    /**
+     * List all resources for a service
+     * @param serviceId
+     */
+    listServiceResources(serviceId: string): string[];
+    /**
+     * List all errors for a service
+     * @param serviceId
+     */
+    listServiceErrors(serviceId: string): string[];
     /**
      * Get a shape by ID
      * @param shapeId
@@ -253,6 +403,11 @@ declare class SmithyAst {
      * @param operationId
      */
     getOperation(operationId: string): SmithyOperation | null;
+    /**
+     * Get an resource instance by ID
+     * @param resourceId
+     */
+    getResource(resourceId: string): SmithyResource | null;
     /**
      * Create a SmithyAst from a JSON string
      * @param json
@@ -329,4 +484,4 @@ declare class SmithyAstConverter {
     protected renderStructureShape(shape: SmithyStructure): string;
 }
 
-export { type AbstractModelShape, type EnumShape, type ListShape, type MapShape, type Model, type ModelMetadata, type ModelShapeTypes, type NodeValue, type NodeValueType, type OperationShape, type ResourceShape, type ServiceShape, type ShapeMember, type ShapeReference, SmithyAggregateShape, SmithyAst, SmithyAstConverter, SmithyEnum, SmithyOperation, SmithyService, SmithyShape, SmithyStructure, SmithyStructureMember, SmithyTrait, type SmithyVersion, type StructureShape, type UnionShape, getDistinctShapeTypes, parseModel, parseService, parseServiceOperations, parseServices, parseTraits };
+export { type AbstractModelShape, type AggregateShapeType, type EnumShape, type ErrorShape, type ListShape, type MapShape, type MemberShape, type Model, type ModelMetadata, type ModelShapeType, type NodeValue, type NodeValueType, type OperationShape, type ResourceShape, type ServiceShape, type ServiceShapeType, type ShapeReference, type SimpleShapeType, SmithyAggregateShape, SmithyAst, SmithyAstConverter, SmithyAstNode, SmithyEnum, SmithyError, SmithyMember, SmithyOperation, SmithyResource, SmithyService, SmithyShape, SmithyStructure, SmithyTrait, type SmithyTraitsAwareInterface, type SmithyVersion, type StructureShape, type UnionShape, getDistinctShapeTypes, parseModel, parseService, parseServiceOperations, parseServices, parseTraits };

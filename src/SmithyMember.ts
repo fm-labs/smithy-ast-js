@@ -1,44 +1,39 @@
-import { SmithyAst } from './SmithyAst.js'
-import { AbstractModelShape } from './types.js'
+import { AbstractModelShape, MemberShape, StructureShape } from './types.js'
 import { SmithyTraitsAwareInterface } from './SmithyTrait.js'
+import { SmithyStructure } from './SmithyStructure.js'
 import { SmithyAstNode } from './SmithyAstNode.js'
 
-export class SmithyShape extends SmithyAstNode implements SmithyTraitsAwareInterface {
-  // public readonly namespace: string
-  // public readonly name: string
-  public readonly shapeType: string
-
+export class SmithyMember extends SmithyAstNode implements SmithyTraitsAwareInterface {
   constructor(
-    protected readonly ast: SmithyAst,
-    protected readonly shapeId: string,
-    protected readonly shape: AbstractModelShape,
+    protected readonly struct: SmithyStructure,
+    public readonly name: string,
+    protected readonly shape: MemberShape,
   ) {
-    super(ast, shapeId, shape)
-    // this.namespace = shapeId.split('#')[0]
-    // this.name = shapeId.split('#')[1]
-    this.shapeType = shape.type
+    const _memberId = `${struct.getNamespace()}#${struct.getName()}$${name}`
+    super(struct.getAst(), _memberId, shape)
+  }
+
+  public getTarget(): string {
+    return this.shape.target
+  }
+
+  public getTargetShape(): AbstractModelShape | null | undefined {
+    return this.ast.getShape(this.shape.target)
+  }
+
+  public getTargetStructure(): SmithyStructure {
+    const shape = this.ast.getShape(this.shape.target) as StructureShape
+    return new SmithyStructure(this.ast, this.shape.target, shape)
   }
 
   // public getId(): string {
   //   return this.shapeId
   // }
   //
-  // public getNamespace(): string {
-  //   return this.namespace
+  // public getName(): string {
+  //   return this.shapeId
   // }
   //
-  // public getName(): string {
-  //   return this.name
-  // }
-
-  public getShapeType(): string {
-    return this.shapeType
-  }
-
-  public getShape(): AbstractModelShape {
-    return this.shape
-  }
-
   // public listTraits(): string[] {
   //   if (!this.shape.traits) {
   //     return []

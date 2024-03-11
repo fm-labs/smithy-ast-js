@@ -36,10 +36,6 @@ export class SmithyOperation extends SmithyShape {
     return this.operation.input.target
   }
 
-  public getOutputTarget() {
-    return this.operation.output.target
-  }
-
   public getInput() {
     const inputShapeId = this.operation.input.target
     const inputShape = this.ast.getShape(inputShapeId) as StructureShape
@@ -49,6 +45,10 @@ export class SmithyOperation extends SmithyShape {
       throw new Error(`Input shape not found: ${inputShapeId}`)
     }
     return new SmithyOperationInput(this.ast, inputShapeId, inputShape)
+  }
+
+  public getOutputTarget() {
+    return this.operation.output.target
   }
 
   public getOutput() {
