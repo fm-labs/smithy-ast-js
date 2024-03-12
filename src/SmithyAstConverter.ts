@@ -14,7 +14,16 @@ import { SmithyEnum } from './SmithyEnum.js'
 import { SmithyAggregateShape } from './SmithyAggregateShape.js'
 import { SmithyShape } from './SmithyShape.js'
 import { SmithyOperation } from './SmithyOperation.js'
+import { SmithyList } from './SmithyList.js'
+import { SmithyMap } from './SmithyMap.js'
+import { SmithyUnion } from './SmithyUnion.js'
+import { SmithySimpleShape } from './SmithySimpleShape.js'
 
+/**
+ * !!! EXPERIMENTAL !!!
+ * Convert a Smithy AST to a Smithy document
+ * @todo This is a work in progress and not yet complete
+ */
 export class SmithyAstConverter {
   constructor(private readonly ast: SmithyAst) {}
 
@@ -35,9 +44,11 @@ export class SmithyAstConverter {
           case 'enum':
             return new SmithyEnum(this.ast, shapeId, model.shapes[shapeId] as EnumShape)
           case 'list':
+            return new SmithyList(this.ast, shapeId, model.shapes[shapeId] as ListShape)
           case 'map':
+            return new SmithyMap(this.ast, shapeId, model.shapes[shapeId] as MapShape)
           case 'union':
-            return new SmithyAggregateShape(this.ast, shapeId, model.shapes[shapeId])
+            return new SmithyUnion(this.ast, shapeId, model.shapes[shapeId] as UnionShape)
           case 'blob':
           case 'boolean':
           case 'string':
@@ -51,7 +62,7 @@ export class SmithyAstConverter {
           case 'bigDecimal':
           case 'timestamp':
           case 'document':
-            return new SmithyShape(this.ast, shapeId, model.shapes[shapeId])
+            return new SmithySimpleShape(this.ast, shapeId, model.shapes[shapeId])
           default:
             throw new Error(`Unknown shape type: ${model.shapes[shapeId].type}`)
         }

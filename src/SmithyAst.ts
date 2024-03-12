@@ -6,10 +6,21 @@ import {
   ShapeReference,
   AbstractModelShape,
   ResourceShape,
+  EnumShape,
+  ListShape,
+  MapShape,
+  UnionShape,
 } from './types.js'
 import { SmithyOperation } from './SmithyOperation.js'
 import { SmithyService } from './SmithyService.js'
 import { SmithyResource } from './SmithyResource.js'
+import { SmithyStructure } from './SmithyStructure.js'
+import { SmithyEnum } from './SmithyEnum.js'
+import { SmithyList } from './SmithyList.js'
+import { SmithyMap } from './SmithyMap.js'
+import { SmithyUnion } from './SmithyUnion.js'
+import { SmithySimpleShape } from './SmithySimpleShape.js'
+import { SmithyShape } from './SmithyShape.js'
 
 export class SmithyAst {
   private readonly model: Model
@@ -214,6 +225,10 @@ export class SmithyAst {
     return new SmithyResource(this, resourceId, resourceShape)
   }
 
+  public buildNodeFromModelShape(shapeId: string, shape: AbstractModelShape): SmithyShape {
+    return SmithyAst.nodeFromModelShape(this, shapeId, shape)
+  }
+
   /**
    * Create a SmithyAst from a JSON string
    * @param json
@@ -228,5 +243,44 @@ export class SmithyAst {
    */
   public static fromModel(model: Model): SmithyAst {
     return new SmithyAst(model)
+  }
+
+  public static nodeFromModelShape(
+    ast: SmithyAst,
+    shapeId: string,
+    shape: AbstractModelShape,
+  ): SmithyShape {
+    switch (shape.type) {
+      case 'structure':
+        return new SmithyStructure(ast, shapeId, shape as StructureShape)
+      case 'operation':
+        return new SmithyOperation(ast, shapeId, shape as OperationShape)
+      case 'resource':
+        return new SmithyResource(ast, shapeId, shape as ResourceShape)
+      case 'enum':
+        return new SmithyEnum(ast, shapeId, shape as EnumShape)
+      case 'list':
+        return new SmithyList(ast, shapeId, shape as ListShape)
+      case 'map':
+        return new SmithyMap(ast, shapeId, shape as MapShape)
+      case 'union':
+        return new SmithyUnion(ast, shapeId, shape as UnionShape)
+      case 'blob':
+      case 'boolean':
+      case 'string':
+      case 'byte':
+      case 'short':
+      case 'integer':
+      case 'long':
+      case 'float':
+      case 'double':
+      case 'bigInteger':
+      case 'bigDecimal':
+      case 'timestamp':
+      case 'document':
+        return new SmithySimpleShape(ast, shapeId, shape)
+      default:
+        throw new Error(`Unknown shape type: ${shape.type}`)
+    }
   }
 }

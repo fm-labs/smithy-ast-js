@@ -204,41 +204,47 @@ interface SmithyTraitsAwareInterface {
     getTrait(traitName: string): SmithyTrait | undefined;
 }
 
-declare class SmithyShape extends SmithyAstNode implements SmithyTraitsAwareInterface {
+declare abstract class SmithyShape extends SmithyAstNode implements SmithyTraitsAwareInterface {
     protected readonly ast: SmithyAst;
     protected readonly shapeId: string;
     protected readonly shape: AbstractModelShape;
     readonly shapeType: string;
-    constructor(ast: SmithyAst, shapeId: string, shape: AbstractModelShape);
+    protected constructor(ast: SmithyAst, shapeId: string, shape: AbstractModelShape);
+    /**
+     * Returns the shape type.
+     */
     getShapeType(): string;
+    /**
+     * Returns the JSON AST representation.
+     */
     getShape(): AbstractModelShape;
 }
 
 declare class SmithyMember extends SmithyAstNode implements SmithyTraitsAwareInterface {
-    protected readonly struct: SmithyStructure;
+    protected readonly parentNode: SmithyShapeWithMembers;
     readonly name: string;
     protected readonly shape: MemberShape;
-    constructor(struct: SmithyStructure, name: string, shape: MemberShape);
+    constructor(parentNode: SmithyShapeWithMembers, name: string, shape: MemberShape);
     getTarget(): string;
     getTargetShape(): AbstractModelShape | null | undefined;
-    getTargetStructure(): SmithyStructure;
+    getTargetNode(): any;
 }
 
-declare class SmithyStructure extends SmithyShape {
+declare class SmithyShapeWithMembers extends SmithyAggregateShape {
     protected readonly ast: SmithyAst;
     protected readonly shapeId: string;
-    protected readonly shape: StructureShape;
-    constructor(ast: SmithyAst, shapeId: string, shape: StructureShape);
-    /**
-     * Get the model shape of the structure
-     * @returns {StructureShape}
-     */
-    getShape(): StructureShape;
+    protected readonly shape: StructureShape | UnionShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: StructureShape | UnionShape);
     /**
      * List the member IDs of the structure
      * @returns {string[]}
      */
     listMembers(): string[];
+    /**
+     * Get a map of member keys and target shape types
+     * @returns {Record<string, string>}
+     */
+    getMemberTypes(): Record<string, string>;
     /**
      * Get the member instances of the structure
      * @returns {SmithyMember[]}
@@ -250,6 +256,14 @@ declare class SmithyStructure extends SmithyShape {
      * @returns {SmithyMember | undefined}
      */
     getMember(memberName: string): SmithyMember | undefined;
+}
+
+declare class SmithyStructure extends SmithyShapeWithMembers {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: StructureShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: StructureShape);
+    getShape(): StructureShape;
 }
 
 declare class SmithyOperationInput extends SmithyStructure {
@@ -408,6 +422,7 @@ declare class SmithyAst {
      * @param resourceId
      */
     getResource(resourceId: string): SmithyResource | null;
+    buildNodeFromModelShape(shapeId: string, shape: AbstractModelShape): SmithyShape;
     /**
      * Create a SmithyAst from a JSON string
      * @param json
@@ -418,9 +433,10 @@ declare class SmithyAst {
      * @param model
      */
     static fromModel(model: Model): SmithyAst;
+    static nodeFromModelShape(ast: SmithyAst, shapeId: string, shape: AbstractModelShape): SmithyShape;
 }
 
-declare class SmithyAggregateShape extends SmithyShape {
+declare abstract class SmithyAggregateShape extends SmithyShape {
     protected readonly ast: SmithyAst;
     protected readonly shapeId: string;
     protected readonly shape: AbstractModelShape;
@@ -435,6 +451,11 @@ declare class SmithyEnum extends SmithyShape {
     getMembers(): Record<string, string | undefined>;
 }
 
+/**
+ * !!! EXPERIMENTAL !!!
+ * Convert a Smithy AST to a Smithy document
+ * @todo This is a work in progress and not yet complete
+ */
 declare class SmithyAstConverter {
     private readonly ast;
     constructor(ast: SmithyAst);
@@ -484,4 +505,44 @@ declare class SmithyAstConverter {
     protected renderStructureShape(shape: SmithyStructure): string;
 }
 
-export { type AbstractModelShape, type AggregateShapeType, type EnumShape, type ErrorShape, type ListShape, type MapShape, type MemberShape, type Model, type ModelMetadata, type ModelShapeType, type NodeValue, type NodeValueType, type OperationShape, type ResourceShape, type ServiceShape, type ServiceShapeType, type ShapeReference, type SimpleShapeType, SmithyAggregateShape, SmithyAst, SmithyAstConverter, SmithyAstNode, SmithyEnum, SmithyError, SmithyMember, SmithyOperation, SmithyResource, SmithyService, SmithyShape, SmithyStructure, SmithyTrait, type SmithyTraitsAwareInterface, type SmithyVersion, type StructureShape, type UnionShape, getDistinctShapeTypes, parseModel, parseService, parseServiceOperations, parseServices, parseTraits };
+declare class SmithyList extends SmithyAggregateShape {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: ListShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: ListShape);
+    getMemberType(): string;
+}
+
+declare class SmithyMap extends SmithyAggregateShape {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: MapShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: MapShape);
+    /**
+     * Returns the type of the keys in the map.
+     * @returns {string}
+     */
+    getKeyType(): string;
+    /**
+     * Returns the type of the values in the map.
+     * @returns {string}
+     */
+    getValueType(): string;
+}
+
+declare class SmithySimpleShape extends SmithyShape {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: AbstractModelShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: AbstractModelShape);
+}
+
+declare class SmithyUnion extends SmithyShapeWithMembers {
+    protected readonly ast: SmithyAst;
+    protected readonly shapeId: string;
+    protected readonly shape: UnionShape;
+    constructor(ast: SmithyAst, shapeId: string, shape: UnionShape);
+    getShape(): UnionShape;
+}
+
+export { type AbstractModelShape, type AggregateShapeType, type EnumShape, type ErrorShape, type ListShape, type MapShape, type MemberShape, type Model, type ModelMetadata, type ModelShapeType, type NodeValue, type NodeValueType, type OperationShape, type ResourceShape, type ServiceShape, type ServiceShapeType, type ShapeReference, type SimpleShapeType, SmithyAggregateShape, SmithyAst, SmithyAstConverter, SmithyAstNode, SmithyEnum, SmithyError, SmithyList, SmithyMap, SmithyMember, SmithyOperation, SmithyResource, SmithyService, SmithyShape, SmithyShapeWithMembers, SmithySimpleShape, SmithyStructure, SmithyTrait, type SmithyTraitsAwareInterface, SmithyUnion, type SmithyVersion, type StructureShape, type UnionShape, getDistinctShapeTypes, parseModel, parseService, parseServiceOperations, parseServices, parseTraits };

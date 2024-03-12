@@ -1,6 +1,20 @@
 import { SmithyAst } from './SmithyAst.js'
-import { AbstractModelShape, MemberShape } from './types.js'
+import {
+  AbstractModelShape,
+  EnumShape,
+  ListShape,
+  MapShape,
+  MemberShape,
+  StructureShape,
+  UnionShape,
+} from './types.js'
 import { SmithyTrait, SmithyTraitsAwareInterface } from './SmithyTrait.js'
+import { SmithyStructure } from './SmithyStructure.js'
+import { SmithyEnum } from './SmithyEnum.js'
+import { SmithyList } from './SmithyList.js'
+import { SmithyMap } from './SmithyMap.js'
+import { SmithyUnion } from './SmithyUnion.js'
+import { SmithySimpleShape } from './SmithySimpleShape.js'
 
 export abstract class SmithyAstNode implements SmithyTraitsAwareInterface {
   public readonly namespace: string

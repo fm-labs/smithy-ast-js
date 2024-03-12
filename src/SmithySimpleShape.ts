@@ -2,7 +2,7 @@ import { SmithyAst } from './SmithyAst.js'
 import { AbstractModelShape } from './types.js'
 import { SmithyShape } from './SmithyShape.js'
 
-export abstract class SmithyAggregateShape extends SmithyShape {
+export class SmithySimpleShape extends SmithyShape {
   constructor(
     protected readonly ast: SmithyAst,
     protected readonly shapeId: string,

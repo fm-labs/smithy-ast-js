@@ -238,32 +238,23 @@ class SmithyShape extends SmithyAstNode {
     ast;
     shapeId;
     shape;
-    // public readonly namespace: string
-    // public readonly name: string
     shapeType;
     constructor(ast, shapeId, shape) {
         super(ast, shapeId, shape);
         this.ast = ast;
         this.shapeId = shapeId;
         this.shape = shape;
-        // this.namespace = shapeId.split('#')[0]
-        // this.name = shapeId.split('#')[1]
         this.shapeType = shape.type;
     }
-    // public getId(): string {
-    //   return this.shapeId
-    // }
-    //
-    // public getNamespace(): string {
-    //   return this.namespace
-    // }
-    //
-    // public getName(): string {
-    //   return this.name
-    // }
+    /**
+     * Returns the shape type.
+     */
     getShapeType() {
         return this.shapeType;
     }
+    /**
+     * Returns the JSON AST representation.
+     */
     getShape() {
         return this.shape;
     }
@@ -282,13 +273,13 @@ class SmithyAggregateShape extends SmithyShape {
 }
 
 class SmithyMember extends SmithyAstNode {
-    struct;
+    parentNode;
     name;
     shape;
-    constructor(struct, name, shape) {
-        const _memberId = `${struct.getNamespace()}#${struct.getName()}$${name}`;
-        super(struct.getAst(), _memberId, shape);
-        this.struct = struct;
+    constructor(parentNode, name, shape) {
+        const _memberId = `${parentNode.getNamespace()}#${parentNode.getName()}$${name}`;
+        super(parentNode.getAst(), _memberId, shape);
+        this.parentNode = parentNode;
         this.name = name;
         this.shape = shape;
     }
@@ -298,13 +289,16 @@ class SmithyMember extends SmithyAstNode {
     getTargetShape() {
         return this.ast.getShape(this.shape.target);
     }
-    getTargetStructure() {
+    getTargetNode() {
+        // @todo: fix return type
         const shape = this.ast.getShape(this.shape.target);
-        return new SmithyStructure(this.ast, this.shape.target, shape);
+        //return new SmithyStructure(this.ast, this.shape.target, shape)
+        //return SmithyAst.nodeFromModelShape(this.ast, this.shape.target, shape!)
+        return this.ast.buildNodeFromModelShape(this.shape.target, shape);
     }
 }
 
-class SmithyStructure extends SmithyShape {
+class SmithyShapeWithMembers extends SmithyAggregateShape {
     ast;
     shapeId;
     shape;
@@ -315,18 +309,20 @@ class SmithyStructure extends SmithyShape {
         this.shape = shape;
     }
     /**
-     * Get the model shape of the structure
-     * @returns {StructureShape}
-     */
-    getShape() {
-        return this.shape;
-    }
-    /**
      * List the member IDs of the structure
      * @returns {string[]}
      */
     listMembers() {
         return Object.keys(this.shape.members);
+    }
+    /**
+     * Get a map of member keys and target shape types
+     * @returns {Record<string, string>}
+     */
+    getMemberTypes() {
+        const memberTypes = {};
+        Object.entries(this.shape.members).forEach(([key, member]) => (memberTypes[key] = member.target));
+        return memberTypes;
     }
     /**
      * Get the member instances of the structure
@@ -348,6 +344,21 @@ class SmithyStructure extends SmithyShape {
             return undefined;
         }
         return new SmithyMember(this, memberName, member);
+    }
+}
+
+class SmithyStructure extends SmithyShapeWithMembers {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+    getShape() {
+        return this.shape;
     }
 }
 
@@ -512,6 +523,98 @@ class SmithyService extends SmithyShape {
             return null;
         }
         return new SmithyError(this.ast, errorId, errorShape);
+    }
+}
+
+class SmithyEnum extends SmithyShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+    getMembers() {
+        const enumMembers = Object.entries(this.shape.members).map(([key, value]) => {
+            let enumValue = null;
+            if (value?.traits && 'smithy.api#enumValue' in value.traits) {
+                enumValue = value.traits['smithy.api#enumValue'];
+            }
+            return {
+                [key]: enumValue,
+            };
+        });
+        return Object.assign({}, ...enumMembers);
+    }
+}
+
+class SmithyList extends SmithyAggregateShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+    getMemberType() {
+        return this.shape.member.target;
+    }
+}
+
+class SmithyMap extends SmithyAggregateShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+    /**
+     * Returns the type of the keys in the map.
+     * @returns {string}
+     */
+    getKeyType() {
+        return this.shape.key.target;
+    }
+    /**
+     * Returns the type of the values in the map.
+     * @returns {string}
+     */
+    getValueType() {
+        return this.shape.value.target;
+    }
+}
+
+class SmithyUnion extends SmithyShapeWithMembers {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
+    }
+    getShape() {
+        return this.shape;
+    }
+}
+
+class SmithySimpleShape extends SmithyShape {
+    ast;
+    shapeId;
+    shape;
+    constructor(ast, shapeId, shape) {
+        super(ast, shapeId, shape);
+        this.ast = ast;
+        this.shapeId = shapeId;
+        this.shape = shape;
     }
 }
 
@@ -702,6 +805,9 @@ class SmithyAst {
         }
         return new SmithyResource(this, resourceId, resourceShape);
     }
+    buildNodeFromModelShape(shapeId, shape) {
+        return SmithyAst.nodeFromModelShape(this, shapeId, shape);
+    }
     /**
      * Create a SmithyAst from a JSON string
      * @param json
@@ -716,32 +822,47 @@ class SmithyAst {
     static fromModel(model) {
         return new SmithyAst(model);
     }
+    static nodeFromModelShape(ast, shapeId, shape) {
+        switch (shape.type) {
+            case 'structure':
+                return new SmithyStructure(ast, shapeId, shape);
+            case 'operation':
+                return new SmithyOperation(ast, shapeId, shape);
+            case 'resource':
+                return new SmithyResource(ast, shapeId, shape);
+            case 'enum':
+                return new SmithyEnum(ast, shapeId, shape);
+            case 'list':
+                return new SmithyList(ast, shapeId, shape);
+            case 'map':
+                return new SmithyMap(ast, shapeId, shape);
+            case 'union':
+                return new SmithyUnion(ast, shapeId, shape);
+            case 'blob':
+            case 'boolean':
+            case 'string':
+            case 'byte':
+            case 'short':
+            case 'integer':
+            case 'long':
+            case 'float':
+            case 'double':
+            case 'bigInteger':
+            case 'bigDecimal':
+            case 'timestamp':
+            case 'document':
+                return new SmithySimpleShape(ast, shapeId, shape);
+            default:
+                throw new Error(`Unknown shape type: ${shape.type}`);
+        }
+    }
 }
 
-class SmithyEnum extends SmithyShape {
-    ast;
-    shapeId;
-    shape;
-    constructor(ast, shapeId, shape) {
-        super(ast, shapeId, shape);
-        this.ast = ast;
-        this.shapeId = shapeId;
-        this.shape = shape;
-    }
-    getMembers() {
-        const enumMembers = Object.entries(this.shape.members).map(([key, value]) => {
-            let enumValue = null;
-            if (value?.traits && 'smithy.api#enumValue' in value.traits) {
-                enumValue = value.traits['smithy.api#enumValue'];
-            }
-            return {
-                [key]: enumValue,
-            };
-        });
-        return Object.assign({}, ...enumMembers);
-    }
-}
-
+/**
+ * !!! EXPERIMENTAL !!!
+ * Convert a Smithy AST to a Smithy document
+ * @todo This is a work in progress and not yet complete
+ */
 class SmithyAstConverter {
     ast;
     constructor(ast) {
@@ -761,9 +882,11 @@ class SmithyAstConverter {
                 case 'enum':
                     return new SmithyEnum(this.ast, shapeId, model.shapes[shapeId]);
                 case 'list':
+                    return new SmithyList(this.ast, shapeId, model.shapes[shapeId]);
                 case 'map':
+                    return new SmithyMap(this.ast, shapeId, model.shapes[shapeId]);
                 case 'union':
-                    return new SmithyAggregateShape(this.ast, shapeId, model.shapes[shapeId]);
+                    return new SmithyUnion(this.ast, shapeId, model.shapes[shapeId]);
                 case 'blob':
                 case 'boolean':
                 case 'string':
@@ -777,7 +900,7 @@ class SmithyAstConverter {
                 case 'bigDecimal':
                 case 'timestamp':
                 case 'document':
-                    return new SmithyShape(this.ast, shapeId, model.shapes[shapeId]);
+                    return new SmithySimpleShape(this.ast, shapeId, model.shapes[shapeId]);
                 default:
                     throw new Error(`Unknown shape type: ${model.shapes[shapeId].type}`);
             }
@@ -950,13 +1073,18 @@ exports.SmithyAstConverter = SmithyAstConverter;
 exports.SmithyAstNode = SmithyAstNode;
 exports.SmithyEnum = SmithyEnum;
 exports.SmithyError = SmithyError;
+exports.SmithyList = SmithyList;
+exports.SmithyMap = SmithyMap;
 exports.SmithyMember = SmithyMember;
 exports.SmithyOperation = SmithyOperation;
 exports.SmithyResource = SmithyResource;
 exports.SmithyService = SmithyService;
 exports.SmithyShape = SmithyShape;
+exports.SmithyShapeWithMembers = SmithyShapeWithMembers;
+exports.SmithySimpleShape = SmithySimpleShape;
 exports.SmithyStructure = SmithyStructure;
 exports.SmithyTrait = SmithyTrait;
+exports.SmithyUnion = SmithyUnion;
 exports.getDistinctShapeTypes = getDistinctShapeTypes;
 exports.parseModel = parseModel;
 exports.parseService = parseService;
